@@ -213,3 +213,8 @@ renderTable();
 </script>
 </body>
 </html>
+function buatNomorOtomatis(jenisValue){
+  const kode = jenisValue || document.getElementById('jenis').value;
+  const count = daftar.filter(d=>d.nomor && d.nomor.includes(kode)).length + 1;
+  return String(count).padStart(3,'0') + kode;
+}
