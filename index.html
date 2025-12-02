@@ -218,3 +218,32 @@ function buatNomorOtomatis(jenisValue){
   const count = daftar.filter(d=>d.nomor && d.nomor.includes(kode)).length + 1;
   return String(count).padStart(3,'0') + kode;
 }
+function getKode(jenis) {
+    if (jenis.includes("Kematian")) return "/KBS/472.4/XII/2025";
+    if (jenis.includes("Kelahiran")) return "/KBS/503/XII/2025";
+    if (jenis.includes("Tidak Mampu")) return "/KBS/401/XII/2025";
+    return "";
+}
+function nomorBerikutnya(jenis) {
+    const kode = getKode(jenis);
+
+    // Cari nomor yang sudah dipakai untuk jenis ini
+    const nomorList = daftar
+        .filter(d => d.nomor.endsWith(kode))
+        .map(d => parseInt(d.nomor.split("/")[0]));
+
+    let next = 1;
+    if (nomorList.length > 0) {
+        next = Math.max(...nomorList) + 1;
+    }
+
+    return String(next).padStart(3, "0") + kode;
+}
+let nomorInput = document.getElementById("nomor").value.trim();
+let jenis = document.getElementById("jenis").value;
+
+// Jika nomor kosong → buat otomatis
+if (!nomorInput) {
+    nomorInput = nomorBerikutnya(jenis);
+}
+
