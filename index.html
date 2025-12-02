@@ -246,4 +246,31 @@ let jenis = document.getElementById("jenis").value;
 if (!nomorInput) {
     nomorInput = nomorBerikutnya(jenis);
 }
+function getKode(jenis) {
+    if (jenis.includes("Kematian")) return "KBS/472.4/XII/2025";
+    if (jenis.includes("Kelahiran")) return "KBS/503/XII/2025";
+    if (jenis.includes("Tidak Mampu")) return "KBS/401/XII/2025";
+    return "";
+}
+function nomorBerikutnya(jenis) {
+    const kode = getKode(jenis);
 
+    // Ambil nomor yang sudah digunakan untuk jenis ini
+    const nomorList = daftar
+        .filter(d => d.nomor.includes(kode))
+        .map(d => parseInt(d.nomor.split("/")[0]));
+
+    let next = 1;
+    if (nomorList.length > 0) {
+        next = Math.max(...nomorList) + 1;
+    }
+
+    return String(next).padStart(3, "0") + "/" + kode;
+}
+let nomorSurat = document.getElementById("nomor").value.trim();
+let jenisValue = document.getElementById("jenis").value;
+
+// Jika kosong → buat otomatis
+if (!nomorSurat) {
+    nomorSurat = nomorBerikutnya(jenisValue);
+}
