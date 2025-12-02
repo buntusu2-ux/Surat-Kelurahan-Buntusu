@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Aplikasi Penomoran Surat - Final</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+<style>
+  body{background:#f7f7f7;font-family:Arial,Helvetica,sans-serif;padding:20px}
+  .card{border-radius:10px}
+  table th, table td{vertical-align:middle}
+  .nomor-field{font-weight:600}
+</style>
+</head>
+<body>
+<div class="container">
+  <h2 class="text-center mb-4">Aplikasi Penomoran Surat</h2>
+
+  <div class="card p-4 mb-3">
+    <div class="row gy-2">
+      <div class="col-md-6">
+        <label class="form-label">Nama Pemohon</label>
+        <input id="nama" class="form-control" placeholder="Masukkan nama" />
+      </div>
+      <div class="col-md-3">
+        <label class="form-label">Tanggal Surat</label>
+        <input id="tanggal" type="date" class="form-control" />
+      </div>
+      <div class="col-md-3">
+        <label class="form-label">Jenis Surat</label>
+        <select id="jenis" class="form-select">
+          <option value="">-- Pilih Jenis --</option>
+          <option value="/KBS/472.4/XII/2025">Surat Kematian (/KBS/472.4/XII/2025)</option>
+          <option value="/KBS/503/XII/2025">Akta Kelahiran (/KBS/503/XII/2025)</option>
+          <option value="/KBS/401/XII/2025">Surat Tidak Mampu (/KBS/401/XII/2025)</option>
+        </select>
+      </div>
+
+      <div class="col-md-9">
+        <label class="form-label">Nomor Surat (bisa diketik)</label>
+        <input id="nomor" class="form-control nomor-field" placeholder="Klik 'Buat Nomor' untuk isi otomatis atau ketik manual" />
+      </div>
+      <div class="col-md-3 d-flex align-items-end">
+        <button id="btnBuat" class="btn btn-primary w-100">Buat Nomor & Simpan</button>
+      </div>
+    </div>
+
+    <div class="mt-3">
+      <small class="text-muted">Catatan: Saat Anda menekan tombol di atas, data otomatis disimpan ke tabel dan tersimpan di browser (localStorage).</small>
+    </div>
+  </div>
+
+  <div class="card p-3 mb-3">
+    <div class="d-flex gap-2 mb-2">
+      <input id="cari" class="form-control" placeholder="Cari nama..." />
+      <button class="btn btn-success" id="btnCSV">Export CSV</button>
+      <button class="btn btn-info text-white" id="btnExcel">Export Excel</button>
+      <button class="btn btn-secondary" id="btnPrintAll">Cetak Semua</button>
+      <div class="btn-group ms-auto">
+        <button class="btn btn-outline-primary" id="btnPrintKematian">Print Kematian</button>
+        <button class="btn btn-outline-primary" id="btnPrintKelahiran">Print Kelahiran</button>
+        <button class="btn btn-outline-primary" id="btnPrintMampu">Print Tidak Mampu</button>
+      </div>
+    </div>
+
+    <div id="area-cetak">
+      <table class="table table-bordered table-sm">
+        <thead class="table-light">
+          <tr>
+            <th style="width:50px">#</th>
+            <th>Nomor Surat</th>
+            <th>Nama</th>
+            <th>Tanggal</th>
+            <th>Jenis Surat</th>
+            <th style="width:140px">Aksi</th>
+          </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// Data & storage
+let daftar = JSON.parse(localStorage.getItem('daftar_surat_v2') || '[]');
+
+// helper
+function simpan(){ localStorage.setItem('daftar_surat_v2', JSON.stringify(daftar)); }
+
+function renderTable(filter=''){
+  const tbody = document.getElementById('tbody');
+  const q = filter.toLowerCase();
+  tbody.innerHTML = '';
+  daftar
+    .filter(d => !q || (d.nama && d.nama.toLowerCase().includes(q)))
+    .forEach((d,i)=>{
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${i+1}</td>
+        <td class="nomor-field">${escapeHtml(d.nomor)}</td>
+        <td>${escapeHtml(d.nama)}</td>
+        <td>${escapeHtml(d.tanggal)}</td>
+        <td>${escapeHtml(d.jenisLabel || d.jenis)}</td>
+        <td>
+          <button class="btn btn-sm btn-outline-secondary" onclick="editRow(${i})">Edit</button>
+          <button class="btn btn-sm btn-danger ms-1" onclick="deleteRow(${i})">Hapus</button>
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
+}
+
+function escapeHtml(s){ if(!s) return ''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+// generate & save
+function buatNomorOtomatis(jenisValue){
+  const kode = jenisValue || document.getElementById('jenis').value;
+  // nomor urut per jenis lebih rapi: hitung jumlah existing dengan kode yang sama
+  const count = daftar.filter(d=>d.nomor && d.nomor.includes(kode)).length + 1;
+  return String(count).padStart(3,'0') + kode;
+}
+
+function handleBuat(){
+  const nama = document.getElementById('nama').value.trim();
+  const tanggal = document.getElementById('tanggal').value;
+  const jenisSelect = document.getElementById('jenis');
+  const jenisValue = jenisSelect.value;
+  const jenisLabel = jenisSelect.options[jenisSelect.selectedIndex]?.text || '';
+  let nomor = document.getElementById('nomor').value.trim();
+
+  if(!nama || !tanggal || !jenisValue) return alert('Lengkapi nama, tanggal, dan jenis surat.');
+
+  if(!nomor){
+    nomor = buatNomorOtomatis(jenisValue);
+    document.getElementById('nomor').value = nomor; // tampilkan
+  }
+
+  // push data
+  daftar.push({ nomor, nama, tanggal, jenis: jenisValue, jenisLabel });
+  simpan();
+  renderTable(document.getElementById('cari').value);
+  alert('Data tersimpan otomatis.');
+}
+
+// edit / delete
+function editRow(i){
+  const item = daftar[i];
+  const newNama = prompt('Ubah nama:', item.nama);
+  if(newNama === null) return; // cancel
+  const newTanggal = prompt('Ubah tanggal (YYYY-MM-DD):', item.tanggal);
+  if(newTanggal === null) return;
+  // jenis tidak diubah lewat prompt supaya tetap konsisten; user bisa ubah nomor manual jika perlu
+  daftar[i].nama = newNama.trim();
+  daftar[i].tanggal = newTanggal.trim();
+  simpan(); renderTable(document.getElementById('cari').value);
+}
+
+function deleteRow(i){ if(!confirm('Hapus data ini?')) return; daftar.splice(i,1); simpan(); renderTable(document.getElementById('cari').value); }
+
+// export CSV
+function exportCSV(){
+  let csv = 'No,Nomor Surat,Nama,Tanggal,Jenis\n';
+  daftar.forEach((d,i)=>{
+    csv += `${i+1},"${d.nomor}","${d.nama}","${d.tanggal}","${d.jenisLabel || d.jenis}"\n`;
+  });
+  const blob = new Blob([csv], {type:'text/csv'});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'daftar_surat.csv'; a.click(); URL.revokeObjectURL(a.href);
+}
+
+// export Excel (simple table to xls)
+function exportExcel(){
+  const table = document.getElementById('area-cetak').innerHTML;
+  const html = `\uFEFF<html><head><meta charset="utf-8"></head><body>${table}</body></html>`;
+  const blob = new Blob([html], {type:'application/vnd.ms-excel'});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'daftar_surat.xls'; a.click(); URL.revokeObjectURL(a.href);
+}
+
+// print helpers (print specific data set)
+function printData(filtered, title){
+  let html = `<h2 style="text-align:center">${title}</h2>`;
+  html += '<table border="1" cellpadding="6" cellspacing="0" width="100%">';
+  html += '<tr><th>No</th><th>Nomor</th><th>Nama</th><th>Tanggal</th><th>Jenis</th></tr>';
+  filtered.forEach((d,i)=>{
+    html += `<tr><td>${i+1}</td><td>${escapeHtml(d.nomor)}</td><td>${escapeHtml(d.nama)}</td><td>${escapeHtml(d.tanggal)}</td><td>${escapeHtml(d.jenisLabel || d.jenis)}</td></tr>`;
+  });
+  html += '</table>';
+
+  const w = window.open('','_blank','width=900,height=700');
+  w.document.write('<html><head><title>'+title+'</title></head><body>'+html+'</body></html>');
+  w.document.close(); w.focus(); w.print();
+}
+
+function printAll(){ printData(daftar, 'Daftar Surat - Semua'); }
+function printByJenis(kode, label){ const filtered = daftar.filter(d=>d.jenis === kode); if(filtered.length===0){ alert('Tidak ada data untuk '+label); return; } printData(filtered, 'Daftar Surat - '+label); }
+
+// events
+document.getElementById('btnBuat').addEventListener('click', handleBuat);
+document.getElementById('btnCSV').addEventListener('click', exportCSV);
+document.getElementById('btnExcel').addEventListener('click', exportExcel);
+document.getElementById('btnPrintAll').addEventListener('click', printAll);
+document.getElementById('btnPrintKematian').addEventListener('click', ()=>printByJenis('/KBS/472.4/XII/2025','Surat Kematian'));
+document.getElementById('btnPrintKelahiran').addEventListener('click', ()=>printByJenis('/KBS/503/XII/2025','Akta Kelahiran'));
+document.getElementById('btnPrintMampu').addEventListener('click', ()=>printByJenis('/KBS/401/XII/2025','Surat Tidak Mampu'));
+
+// search
+document.getElementById('cari').addEventListener('input', (e)=> renderTable(e.target.value));
+
+// initial render
+renderTable();
+
+</script>
+</body>
+</html>
