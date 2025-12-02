@@ -274,3 +274,85 @@ let jenisValue = document.getElementById("jenis").value;
 if (!nomorSurat) {
     nomorSurat = nomorBerikutnya(jenisValue);
 }
+<script>
+
+// =======================
+// Ambil data dari localStorage
+// =======================
+let daftar = JSON.parse(localStorage.getItem("dataSurat")) || [];
+
+
+// =======================
+// FUNGSI MENGAMBIL KODE SURAT BERDASARKAN JENIS
+// =======================
+function getKode(jenis) {
+    if (jenis.includes("Kematian")) return "KBS/472.4/XII/2025";
+    if (jenis.includes("Kelahiran")) return "KBS/503/XII/2025";
+    if (jenis.includes("Tidak Mampu")) return "KBS/401/XII/2025";
+    return "";
+}
+
+
+// =======================
+// FUNGSI MEMBUAT NOMOR BERIKUTNYA UNTUK JENIS SURAT TERTENTU
+// =======================
+function nomorBerikutnya(jenis) {
+    const kode = getKode(jenis);
+
+    const nomorList = daftar
+        .filter(d => d.nomor.includes(kode))
+        .map(d => parseInt(d.nomor.split("/")[0]));
+
+    let next = (nomorList.length > 0)
+        ? Math.max(...nomorList) + 1
+        : 1;
+
+    return String(next).padStart(3, "0") + "/" + kode;
+}
+
+
+// =======================
+// KETIKA KLIK "BUAT NOMOR & SIMPAN"
+// =======================
+function simpanSurat() {
+    let nama = document.getElementById("nama").value;
+    let tanggal = document.getElementById("tanggal").value;
+    let jenis = document.getElementById("jenis").value;
+    let nomor = document.getElementById("nomor").value.trim();
+
+    if (!nomor) {
+        nomor = nomorBerikutnya(jenis); // otomatis
+    }
+
+    daftar.push({ nama, tanggal, jenis, nomor });
+    localStorage.setItem("dataSurat", JSON.stringify(daftar));
+
+    muatTabel();
+    alert("Data berhasil disimpan!");
+}
+
+
+// =======================
+// REFRESH TABEL
+// =======================
+function muatTabel() {
+    const tbody = document.getElementById("tabelData");
+    tbody.innerHTML = "";
+
+    let no = 1;
+    daftar.forEach(d => {
+        tbody.innerHTML += `
+        <tr>
+            <td>${no++}</td>
+            <td>${d.nomor}</td>
+            <td>${d.nama}</td>
+            <td>${d.tanggal}</td>
+            <td>${d.jenis}</td>
+            <td><button class="btn btn-danger btn-sm" onclick="hapusSurat('${d.nomor}')">Hapus</button></td>
+        </tr>`;
+    });
+}
+
+muatTabel();
+
+</script>
